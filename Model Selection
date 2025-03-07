@@ -1,0 +1,74 @@
+#install.packages("readxl")
+library(readxl)
+
+install.packages("leaps")
+library(leaps)
+
+# Read Excel file
+library(readxl)
+winequality_all_fixed <- read_excel("/Users/nicholaslagen/Desktop/winequality-all-fixed.xlsx")
+View(winequality_all_fixed)
+# data_excel <- read_excel("winequality_all_fixed.xlsx")
+
+# Read CSV file
+data_csv <- read.csv("/Users/nicholaslagen/Stat 4000 project/winequality-all-fixed.csv")
+
+# Change white/red to 1/0
+data1 <- data_csv
+data1$Color <- ifelse(data1$Color == "White", 1, 0)
+
+## forward stepwise selection
+
+# Perform forward stepwise selection
+regfit.fwd <- regsubsets(Color ~ ., data = data1, nvmax = 12, method = "forward")
+
+# Summarize forward stepwise selection results
+summary(regfit.fwd)
+
+reg.summary <- summary(regfit.fwd)
+
+# Identify the model with the smallest BIC and plot it
+which.min(reg.summary$bic)
+plot(reg.summary$bic, xlab = "Number of Variables", ylab = "BIC", type = "l")
+points(12, reg.summary$bic[12], col = "red", cex = 2, pch = 20)
+
+# Forward stepwise selection
+coef(regfit.fwd, 12)
+
+
+##### Validation-Set Approach and Cross-Validation
+
+# Set seed for reproducibility
+set.seed(1)
+
+# Create a vector indicating training and test set
+train <- sample(c(TRUE, FALSE), nrow(data1), replace = TRUE)
+test <- !train
+
+# Perform best subset selection on the training set
+regfit.best <- regsubsets(Color ~ ., data = data1[train, ], nvmax = 12)
+
+# Make a model matrix from the test data
+test.mat <- model.matrix(Color ~ ., data = data1[test, ])
+
+# Initialize vector to store validation errors
+val.errors <- rep(NA, 12)
+
+# Loop through different model sizes and compute validation errors
+for (i in 1:12) {
+  coefi <- coef(regfit.best, id = i)
+  pred <- test.mat[, names(coefi)] %*% coefi
+  val.errors[i] <- mean((data1$Color[test] - pred)^2)
+}
+
+# Identify the best model size based on validation errors
+best_model_size <- which.min(val.errors)
+
+# Display validation errors
+val.errors
+
+best_model_size
+
+# Display the best model for the identified size
+coef(regfit.best, best_model_size)
+
