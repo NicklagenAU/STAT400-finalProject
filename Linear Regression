@@ -1,0 +1,91 @@
+#install.packages("readxl")
+library(readxl)
+
+# Read Excel file
+library(readxl)
+winequality_all_fixed <- read_excel("Desktop/winequality-all-fixed.xlsx")
+View(winequality_all_fixed)
+# data_excel <- read_excel("winequality_all_fixed.xlsx")
+
+# Read CSV file
+data_csv <- read.csv("/Users/nicholaslagen/Stat 4000 project/winequality-all-fixed.csv")
+
+# Change white/red to 1/0
+data1 <- data_csv
+data1$Color <- ifelse(data1$Color == "White", 1, 0)
+
+# Print the first few rows of the modified data frame for verification
+print(head(data1))
+
+# Fit a simple linear regression model
+model <- lm(alcohol ~ density, data = data1)
+
+# Print a summary of the model
+summary(model)
+
+# Extract information from the model using various functions
+names(model)
+coef(model)
+
+# Obtain confidence intervals for coefficient estimates
+confint(model)
+
+# Use predict() function for confidence and prediction intervals
+new_data <- data.frame(density = c(0.992, 0.995, 1.000))
+predict(model, newdata = new_data, interval = "confidence")
+predict(model, newdata = new_data, interval = "prediction")
+
+# Plot alcohol against density
+plot(data1$density, data1$alcohol, main = "Scatter plot of Alcohol against Density",
+     xlab = "density", ylab = "alcohol", pch = 19)
+
+# Add the least squares regression line
+abline(model, col = "red")
+
+# 3.6.3 Multiple Linear Regression
+# Fit a multiple linear regression model with density and quality as predictors
+lm.fit <- lm(alcohol ~ density + quality, data = data1)
+# Display model summary
+summary(lm.fit)
+
+# Fit a model using all predictors in the data1 dataset
+lm.fit <- lm(density ~ ., data = data1)
+# Display model summary
+summary(lm.fit)
+
+# Access components of the summary object
+summary(lm.fit)$r.sq
+summary(lm.fit)$sigma
+
+# Fit a model excluding the predictor 'quality'
+lm.fit1 <- lm(alcohol ~ . - quality, data = data1)
+summary(lm.fit1)
+
+# Alternatively, use the update() function
+lm.fit1 <- update(lm.fit, ~ . - quality)
+
+# 3.6.4 Interaction Terms
+# Fit a model with interaction terms between density and quality
+summary(lm(alcohol ~ density * quality, data = data1))
+
+# 3.6.5 Non-linear Transformations of the Predictors
+# Fit a model with non-linear transformations (quadratic)
+lm.fit2 <- lm(alcohol ~ density + I(density^2), data = data1)
+summary(lm.fit2)
+
+# Perform ANOVA to compare linear and quadratic models
+lm.fit <- lm(alcohol ~ density, data = data1)
+anova(lm.fit, lm.fit2)
+
+# Fit a model with a fifth-order polynomial
+lm.fit5 <- lm(alcohol ~ poly(density, 5), data = data1)
+summary(lm.fit5)
+
+# 3.6.6 Qualitative Predictors
+
+# Fit a multiple regression model with qualitative predictors and interaction terms
+lm.fit <- lm(Color ~ . + density:Color + alcohol:quality, data = data1)
+summary(lm.fit)
+
+# Return the coding that R uses for dummy variables
+attach(data1)
