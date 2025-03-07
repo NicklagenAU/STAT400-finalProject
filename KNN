@@ -1,0 +1,125 @@
+# Read Excel file
+library(readxl)
+winequality_all_fixed <- read_excel("Desktop/winequality-all-fixed.xlsx")
+View(winequality_all_fixed)
+# data_excel <- read_excel("winequality_all_fixed.xlsx")
+
+# Read CSV file
+data_csv <- read.csv("/Users/nicholaslagen/Stat 4000 project/winequality-all-fixed.csv")
+
+# Change white/red to 1/0
+data1 <- data_csv
+data1$Color <- ifelse(data1$Color == "White", 1, 0)
+
+# Display the variable names in the data1 dataset
+names(data_csv)
+
+# Display the dimensions of the data1 dataset
+dim(data1)
+
+# Summary statistics of the data1 dataset
+summary(data1)
+
+# Pairwise scatterplot matrix of the data1 dataset
+pairs(data1)
+
+# Calculate pairwise correlations among predictors
+# Note: This will throw an error because 'Direction' is qualitative
+# cor(data1)
+
+# Calculate pairwise correlations among predictors excluding the qualitative variable 'Direction'
+cor(data1[, -9])
+
+#########################################################################
+# kNN
+#########
+
+# Load the class library for K-Nearest Neighbors
+# Load the class library for K-Nearest Neighbors
+library(class)
+
+# Split data into training and test sets (e.g., using a 70-30 split)
+train_indices <- sample(1:nrow(data1), 0.7 * nrow(data1))  # 70% for training
+train <- data1[train_indices, ]
+test_data <- data1[-train_indices, ]
+
+# Create matrices for training and test data containing volatile acidity and total sulfur dioxide predictors
+train.X <- cbind(train$`volatile acidity`, train$`total sulfur dioxide`)
+test.X <- cbind(test_data$`volatile acidity`, test_data$`total sulfur dioxide`)
+
+# Check the structure of 'Color'
+print(class(Color))
+print(length(Color))
+
+# Verify the contents of 'train'
+print(train)
+
+# Extract the Direction labels for the training set
+train.Color <- train$Color
+
+# NOT CORRECT ---------------------------------------------------------------
+# Use the knn() function to predict the wine's color
+set.seed(1)
+knn.pred <- knn(train.X, test.X, train$Color, k = 1)
+
+# Create a confusion matrix to evaluate the performance of KNN with K=1
+table(knn.pred, Direction.2005)
+
+# Compute the overall accuracy rate of the KNN model
+mean(knn.pred == Direction.2005)
+
+# Repeat the analysis using K = 3
+knn.pred <- knn(train.X, test.X, train.Direction, k = 3)
+table(knn.pred, Direction.2005)
+mean(knn.pred == Direction.2005)
+
+# Standardize the data to ensure variables are on a comparable scale
+attach(Caravan)
+standardized.X <- scale(Caravan[, -86])
+
+# Split the data into training and test sets
+test <- 1:1000
+train.X <- standardized.X[-test, ]
+test.X <- standardized.X[test, ]
+train.Y <- Purchase[-test]
+test.Y <- Purchase[test]
+
+# Fit a KNN model on the standardized training data using K = 1
+set.seed(1)
+knn.pred <- knn(train.X, test.X, train.Y, k = 1)
+
+# Calculate the error rate for KNN with K = 1
+mean(test.Y != knn.pred)
+
+# Calculate the error rate if always predicting "No"
+mean(test.Y != "No")
+
+# Assess the success rate among predicted buyers
+table(knn.pred, test.Y)
+9 / (68 + 9)
+
+# Repeat the analysis using K = 3
+knn.pred <- knn(train.X, test.X, train.Y, k = 3)
+table(knn.pred, test.Y)
+5 / 26
+
+# Repeat the analysis using K = 5
+knn.pred <- knn(train.X, test.X, train.Y, k = 5)
+table(knn.pred, test.Y)
+4 / 15
+
+# Fit a logistic regression model to compare with KNN
+glm.fits <- glm(Purchase ~ ., data = Caravan, family = binomial, subset = -test)
+glm.probs <- predict(glm.fits, Caravan[test, ], type = "response")
+
+# Predict purchases based on logistic regression probabilities
+glm.pred <- rep("No", 1000)
+glm.pred[glm.probs > 0.5] <- "Yes"
+table(glm.pred, test.Y)
+
+# Adjust the cutoff probability for predicting purchases
+glm.pred <- rep("No", 1000)
+glm.pred[glm.probs > 0.25] <- "Yes"
+table(glm.pred, test.Y)
+11 / (22 + 11)
+
