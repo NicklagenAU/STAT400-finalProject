@@ -1,0 +1,307 @@
+getwd()
+
+#load data into R
+library(readxl)
+winequality_all_fixed <- read_excel("C:/Users/wilso/Downloads/winequality-all-fixed.xlsx")
+WQdata = winequality_all_fixed
+head(WQdata)
+
+#change white/red to 1/0
+data1 = WQdata
+data1$Color <- ifelse(data1$Color == "White", 1, 0)
+
+# Print a few rows for verification
+head(data1$Color)
+tail(data1$Color)
+
+#Data Exploration
+
+#run correlation matrix for wine color and 
+cor(data1, data1[13])
+cor(data1, data1[11])
+
+
+
+###########################################################################################
+#Linear Regression 
+
+# Fit a simple linear regression model
+model <- lm(alcohol ~ density, data = data1)
+
+# Print a summary of the model
+summary(model)
+
+# Extract information from the model using various functions
+names(model)
+coef(model)
+
+# Obtain confidence intervals for coefficient estimates
+confint(model)
+
+# Use predict() function for confidence and prediction intervals
+new_data <- data.frame(density = c(0.992, 0.995, 1.000))
+predict(model, newdata = new_data, interval = "confidence")
+predict(model, newdata = new_data, interval = "prediction")
+
+# Plot alcohol against density
+plot(data1$density, data1$alcohol, main = "Scatter plot of Alcohol against Density",
+     xlab = "density", ylab = "alcohol", pch = 19)
+
+# Add the least squares regression line
+abline(model, col = "red")
+
+# 3.6.3 Multiple Linear Regression
+# Fit a multiple linear regression model with density and quality as predictors
+lm.fit <- lm(alcohol ~ density + quality, data = data1)
+# Display model summary
+summary(lm.fit)
+
+# Fit a model using all predictors in the data1 dataset
+lm.fit <- lm(density ~ ., data = data1)
+# Display model summary
+summary(lm.fit)
+
+# Access components of the summary object
+summary(lm.fit)$r.sq
+summary(lm.fit)$sigma
+
+# Fit a model excluding the predictor 'quality'
+lm.fit1 <- lm(alcohol ~ . - quality, data = data1)
+summary(lm.fit1)
+
+# Alternatively, use the update() function
+lm.fit1 <- update(lm.fit, ~ . - quality)
+
+# 3.6.4 Interaction Terms
+# Fit a model with interaction terms between density and quality
+summary(lm(alcohol ~ density * quality, data = data1))
+
+# 3.6.5 Non-linear Transformations of the Predictors
+# Fit a model with non-linear transformations (quadratic)
+lm.fit2 <- lm(alcohol ~ density + I(density^2), data = data1)
+summary(lm.fit2)
+
+# Perform ANOVA to compare linear and quadratic models
+lm.fit <- lm(alcohol ~ density, data = data1)
+anova(lm.fit, lm.fit2)
+
+# Fit a model with a fifth-order polynomial
+lm.fit5 <- lm(alcohol ~ poly(density, 5), data = data1)
+summary(lm.fit5)
+
+# 3.6.6 Qualitative Predictors
+
+# Fit a multiple regression model with qualitative predictors and interaction terms
+lm.fit <- lm(Color ~ . + density:Color + alcohol:quality, data = data1)
+summary(lm.fit)
+
+
+#######################################################################
+#Logistic Regression
+# Fit a logistic regression model to predict Color using 5 of the highest correlated variables
+glm.fits <- glm(Color ~ `volatile acidity` + `total sulfur dioxide` + `chlorides` + `fixed acidity` + `sulphates`, data = data1, family = binomial)
+
+# Display summary of the fitted logistic regression model
+summary(glm.fits)
+
+# Extract coefficients of the logistic regression model
+coef(glm.fits)
+
+# Extract coefficients along with their standard errors and p-values
+summary(glm.fits)$coef
+
+# Predict the probability of white using the fitted logistic regression model
+glm.probs <- predict(glm.fits, type = "response")
+
+
+# Display the first ten predicted probabilities
+glm.probs[1:10]
+
+# Create vector of class predictions based on predicted probabilities
+glm.pred <- rep("Red", 6497)
+glm.pred[glm.probs > .5] <- "White"
+
+# Create confusion matrix to assess model performance
+table(glm.pred, WQdata$Color)
+
+# Compute accuracy rate of the model
+mean(glm.pred == WQdata$Color)
+
+
+
+
+# Split the data into training and test
+#80/20
+set.seed(1)
+train_guide <- sample(nrow(data1), 0.8*nrow(data1))
+
+#use above guide to split both datasets (transformed and not)
+train = data1[train_guide, ]
+Nametrain = WQdata[train_guide, ]
+
+test <- data1[-train_guide,]
+Nametest = WQdata[-train_guide, ]
+
+
+# Refit logistic regression model using only volatile acidity and total sulfur dioxide
+# these are the two predictors that we will use for the rest of the classification models
+glm.fits <- glm(Color ~ `volatile acidity` + `total sulfur dioxide`, data = train, family = binomial)
+
+# Predict probabilities and create class predictions for the test set
+glm.probs <- predict(glm.fits, Nametest, type = "response")
+glm.pred <- rep("Red", 1300)
+glm.pred[glm.probs > .5] <- "White"
+
+
+# Compute confusion matrix and accuracy rate for the simplified model
+table(glm.pred, Nametest$Color)
+mean(glm.pred == Nametest$Color)
+
+
+#########################################################################################
+# Linear Discriminant Analysis
+# Load the MASS library for Linear Discriminant Analysis (LDA)
+library(MASS)
+
+# Fit an LDA model 
+lda.fit <- lda(Color ~ `volatile acidity` + `total sulfur dioxide`, data = Nametrain)
+
+# Display the LDA model summary
+lda.fit
+
+# Plot the linear discriminants
+plot(lda.fit)
+
+# Make predictions using the LDA model on the test set
+lda.pred <- predict(lda.fit, Nametest)
+
+# Extract class predictions from the LDA prediction object
+lda.class <- lda.pred$class
+
+# Create confusion matrix to assess model performance
+table(lda.class, Nametest$Color)
+
+# Compute accuracy rate of the LDA model
+mean(lda.class == Nametest$Color)
+
+# Recreate predictions using a 50% threshold on posterior probabilities
+sum(lda.pred$posterior[, 1] >= .5)
+sum(lda.pred$posterior[, 1] < .5)
+
+# Display posterior probabilities for the first 20 observations
+lda.pred$posterior[1:20, 1]
+
+# Display corresponding class predictions for the first 20 observations
+lda.class[1:20]
+
+# Predict market decrease only if posterior probability is at least 90%
+sum(lda.pred$posterior[, 1] > .9)
+
+
+
+############################################################################3
+#Quadratic Discriminant Analysis
+
+
+# Fit a QDA model using the training set and the same 2 predictors
+qda.fit <- qda(Color ~ `volatile acidity` + `total sulfur dioxide`, data = Nametrain)
+
+# Display the QDA model summary
+qda.fit
+
+# Make predictions using the QDA model on the test data
+qda.class <- predict(qda.fit, Nametest)$class
+
+# Create confusion matrix to assess model performance
+table(qda.class, Nametest$Color)
+
+# Compute accuracy rate of the QDA model
+mean(qda.class == Nametest$Color)
+
+
+#######################################################################################
+#Naive Bayes
+# Load the e1071 library for Naive Bayes
+library(e1071)
+
+# Fit a Naive Bayes model using the same two predictors and the training set
+nb.fit <- naiveBayes(Color ~  `volatile acidity` + `total sulfur dioxide`, data = Nametrain)
+
+# Display the Naive Bayes model summary
+nb.fit
+
+# Make predictions using the Naive Bayes model on the test data
+nb.class <- predict(nb.fit, Nametest)
+
+# Create confusion matrix to assess model performance
+table(nb.class, Nametest$Color)
+
+# Compute accuracy rate of the Naive Bayes model
+mean(nb.class == Nametest$Color)
+
+# Generate estimates of the probability that each observation belongs to a particular class
+nb.preds <- predict(nb.fit, Nametest, type = "raw")
+nb.preds[1:30, ]
+
+
+###############################################################################
+#KNN
+
+# Load the class library for K-Nearest Neighbors
+library(class)
+attach(data1)
+
+# Create matrices for training and test data containing the volatile acidity and total sulfur dioxide predictors
+train.X <- cbind(Nametrain$`volatile acidity`, Nametrain$`total sulfur dioxide`)
+test.X <- cbind(Nametest$`volatile acidity`, Nametest$`total sulfur dioxide`)
+
+# Extract the Direction labels for the training set
+train.Color <- Nametrain$Color
+
+# Use the knn() function for K=1
+set.seed(1)
+knn.pred <- knn(train.X, test.X, train.Color, k = 1)
+
+# Create a confusion matrix to evaluate the performance of KNN with K=1
+table(knn.pred, Nametest$Color)
+
+# Compute the overall accuracy rate of the KNN model
+mean(knn.pred == Nametest$Color)
+
+# Repeat the analysis using K = 3
+set.seed(1)
+knn.pred <- knn(train.X, test.X, train.Color, k = 3)
+table(knn.pred, Nametest$Color)
+mean(knn.pred == Nametest$Color)
+
+# Standardize the data to ensure variables are on a comparable scale
+train.X <- scale(WQdata[,-13])
+
+#remake training and test sets with new scaled data
+set.seed(1)
+train_guide <- sample(nrow(data1), 0.8*nrow(data1))
+train = data1[train_guide, ]
+Nametrain = WQdata[train_guide, ]
+
+test <- data1[-train_guide,]
+Nametest = WQdata[-train_guide, ]
+
+
+# Fit a KNN model on the standardized training data using K = 1
+set.seed(1)
+knn.pred <- knn(train, test, Nametrain$Color, k = 1)
+
+table(knn.pred, Nametest$Color)
+# Calculate the accuracy rate for KNN with K = 1
+mean(Nametest$Color == knn.pred)
+
+# Repeat the analysis using K = 3
+knn.pred <- knn(train, test, Nametrain$Color, k = 3)
+table(knn.pred, Nametest$Color)
+mean(Nametest$Color == knn.pred)
+
+# Repeat the analysis using K = 5
+knn.pred <- knn(train, test, Nametrain$Color, k = 5)
+table(knn.pred, Nametest$Color)
+mean(Nametest$Color == knn.pred)
+
